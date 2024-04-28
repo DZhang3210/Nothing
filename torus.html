@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Rotating Rect</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.13/katex.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.13/katex.min.js"></script>
+    <link rel="stylesheet" href="torus_style.css">
+</head>
+<body>
+    <!-- <div id="matrixContainer"></div>
+    <div> Model Matrix * X-Rotation * Y-Rotation</div> -->
+
+    <div class="title">Shape Picker</div>
+    <button class="toggle-button" onclick="anim2()">Toggle Canvas Animation</button>
+    <div class="dropdown">
+      <button class="dropbtn">Choose a Shape</button>
+      <div class="dropdown-content" id="myDropdown">
+          <a href="#">Cube</a>
+          <a href="#">Mobius Strip</a>
+          <a href="#">Klein Bottle</a>
+          <a href="#">Spherical Harmonic</a>
+      </div>
+  </div>
+    <div class="canvas-container">
+      <canvas id="canvasdonut" width="1000" height="600"></canvas> <!-- Example canvas element -->
+      <div class="slider-group">      
+        <div class="slider-container">
+          <label for="A1Slider" class="slider-label">X-Axis Rotation: <span id="A1Value">0.07</span></label>
+          <input type="range" id="A1Slider" min="-0.4" max="0.4" value="0.07" step="0.01">
+        </div>
+        
+        <div class="slider-container">
+          <label for="A2Slider" class="slider-label">Y-Axis Rotation: <span id="A2Value">0.03</span></label>
+          <input type="range" id="A2Slider" min="-0.4" max="0.4" value="0.03" step="0.01">
+        </div>
+        
+        <div class="slider-container">
+          <label for="R2Slider" class="slider-label">Zoom Scale: <span id="R2Value">4</span></label>
+          <input type="range" id="R2Slider" min="-8" max="8" value="4" step="0.1">
+        </div>
+      </div>
+    </div>
+    
+    <!-- <img src = "3d-coord.jpeg" width = "200" height = "200"></img> -->
+    
+    <script>
+      function cube(R1, R2){
+          temp = []
+          for (var i = -2.5; i <= 2.5; i += 0.5){
+            for(var j=-2.5;j<= 2.5;j+=0.5) {
+              for(var z=-2.5;z<= 2.5;z+=0.5) {
+                temp.push([R1 + R2 * i, R2*j, R2*z]);
+              }
+            }
+          }
+          return temp;
+        }
+        function mobius(R1, R2){
+          temp = []
+          for (var u = 0; u < 6.28; u += 0.15){
+            for (var v = 0; v < 6.28; v += 0.15){
+              v_half = v/2
+              temp.push(
+                [
+                  R1 + R2 * (1 + v_half*Math.cos(v_half))*Math.cos(u),
+                  R2 * (1 + v_half * Math.cos(u/2)) * Math.sin(u),
+                  v_half * Math.sin(u/2)
+                ]
+              )
+            }
+          }
+          return temp
+        }
+        function klein(R1, R2){
+          var temp = []
+          for (var u = 0; u < 6.28; u += 0.15){
+            for (var v = 0; v < 6.28; v += 0.15){
+              var cU = Math.cos(u), sU = Math.sin(u);
+              var cV = Math.cos(v), sV = Math.sin(v);
+              v_half = v/2
+              temp.push(
+                [
+                  R1 + R2 * (6 * cU * (1+sU) + 4 * (1 - (1/2)*cV) * cU) * cV,
+                  R2 * (16 * sU + 4* (1 - (1/2) * cV) * sU )* cV,
+                  4 * sV
+                ]
+              )
+            }
+          }
+          return temp
+        }
+        function sHarmonic(R1, R2){
+          var temp = []
+          for (var u = 0; u < 6.28; u += 0.15){
+            for (var v = 0; v < 3.14; v += 0.15){
+              var cU = Math.cos(u), sU = Math.sin(u);
+              var cV = Math.cos(v), sV = Math.sin(v);
+              v_half = v/2
+              temp.push(
+                [
+                  R1 + R2 * sV * cV,
+                  R2 * sV * sU,
+                  cV
+                ]
+              )
+            }
+          }
+          return temp
+        }
+
+
+    </script>
+    <script type="text/javascript">
+        
+        var _onload = function() {
+        var canvastag = document.getElementById('canvasdonut');
+        const A1Value = document.getElementById('A1Value');
+        const A1Slider = document.getElementById('A1Slider');
+        const A2Value = document.getElementById('A2Value');
+        const A2Slider = document.getElementById('A2Slider');
+        const R2Value = document.getElementById('R2Value');
+        const R2Slider = document.getElementById('R2Slider');
+        tmr2 = undefined;
+
+        // This is a reimplementation according to my math derivation on the page
+        
+        //[i, j, k]
+        var R1 = -1;
+        var R2 = +R2Slider.value;
+        var K1 = 150;
+        var K2 = 10;
+        var A = 0, B = 0;
+        var A1 = +A1Slider.value, A2 = +A2Slider.value;
+        var width = 1000;
+        var height = 800;
+        let c = sHarmonic
+
+        A1Slider.oninput = function() {
+          A1Value.innerHTML = this.value;
+          A1 = +this.value;
+          canvasframe(c);
+        }
+        A2Slider.oninput = function() {
+          A2Value.innerHTML = this.value;
+          A2 = +this.value;
+          canvasframe(c);
+        }
+        R2Slider.oninput = function() {
+          R2Value.innerHTML = this.value;
+          R2 = +this.value;
+          canvasframe(c);
+        }
+        document.querySelector("#myDropdown a:nth-child(1)").addEventListener('click', ()=>{
+            c = cube;
+            canvasframe(c);
+          
+          });
+          document.querySelector("#myDropdown a:nth-child(2)").addEventListener('click', () => {
+            c = mobius;
+            canvasframe(c)
+          });
+
+          document.querySelector("#myDropdown a:nth-child(3)").addEventListener('click', () => {
+            c = klein;
+            canvasframe(c)
+          });
+          document.querySelector("#myDropdown a:nth-child(4)").addEventListener('click', () => {
+            c = sHarmonic;
+            canvasframe(c)
+          });
+        
+        var canvasframe= function(cShape) {
+          var ctx = canvastag.getContext('2d');
+          ctx.fillStyle='#000';
+          ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+          
+          if(tmr2 !== undefined) { // only update A and B if the first animation isn't doing it already
+            A += A1;
+            B += A2;
+            // A += 0;
+            // B += 0;
+          }
+          // precompute cosines and sines of A, B, theta, phi, same as before
+          var cA=Math.cos(A), sA=Math.sin(A),
+              cB=Math.cos(B), sB=Math.sin(B);
+          //let shape = [];
+          //Create a Cube
+          //shape = cube(R1, R2);
+          let shape = cShape(R1, R2);
+          //let shape = cube(R1, R2)
+          //Create a Mobius Strip
+          //document.querySelector("#myDropdown a:nth-child(3)").addEventListener('click', link3Function);
+
+
+            //var ct=Math.cos(j),st=Math.sin(j); // cosine theta, sine theta
+            for(var b= 0;b<=shape.length;b+=1) {
+              console.log("error inside")
+              //var sp=Math.sin(i),cp=Math.cos(i); // cosine phi, sine phi
+              console.log(shape[b])
+              var ox = shape[b][0]; // object x, y = (R2,0,0) + (R1 cos theta, R1 sin theta, 0)
+              var oy = shape[b][1];
+              var oz = shape[b][2];
+
+              var x = ox*cB + oy * sB; // final 3D x coordinate
+              var y = ox* -1 * sB*cA + oy*cA*cB + oz * sA; // final 3D y
+              var ooz = 1/(K2 + ox*sA*sB - oy*sA*cB + oz*cA); // one over z
+
+
+              var xp=(width/2 +K1*ooz*x); // x' = screen space coordinate, translated and scaled to fit our 320x240 canvas element
+              var yp=(height/2-K1*ooz*y); // y' (it's negative here because in our output, positive y goes down but in our 3D space, positive y goes up)
+              //console.log((ooz))
+
+              // luminance, scaled back to 0 to 1
+              // -~:;=!*#$@"[N>0?N:0]
+
+              ctx.fillStyle = 'rgba(' + 225  +','+ (ooz**-1 * 225)%255 +',' + 225  + ','+1+')';
+              ctx.fillRect(xp, yp, 1, 1);
+              // var L=0.7*(sB - cA - sA + cB*(cA - sA));
+              // if(L > 0) {
+              //   ctx.fillStyle = 'rgba(255,255,255,'+L+')';
+              //   ctx.fillRect(xp, yp, 5, 5);
+              //}
+            }
+        }
+
+        window.anim2 = function() {
+          if(tmr2 === undefined) {
+            tmr2 = setInterval(() => canvasframe(c), 30);
+          } else {
+            clearInterval(tmr2);
+            tmr2 = undefined;
+          }
+        };
+        console.log("hello")
+        canvasframe(c);
+      }
+
+      if(document.all)
+        window.attachEvent('onload',_onload);
+      else
+        window.addEventListener("load",_onload,false);
+
+    </script>
+    <script>
+            // Get the dropdown button element
+      var dropbtn = document.querySelector(".dropbtn");
+
+      // Toggle the dropdown content when clicking on the button
+      dropbtn.onclick = function() {
+          var dropdownContent = document.getElementById("myDropdown");
+          if (dropdownContent.style.display === "block") {
+              dropdownContent.style.display = "none";
+          } else {
+              dropdownContent.style.display = "block";
+          }
+      }
+
+      // Close the dropdown if the user clicks outside of it
+      window.onclick = function(event) {
+          if (!event.target.matches('.dropbtn')) {
+              var dropdowns = document.getElementsByClassName("dropdown-content");
+              for (var i = 0; i < dropdowns.length; i++) {
+                  var openDropdown = dropdowns[i];
+                  if (openDropdown.style.display === "block") {
+                      openDropdown.style.display = "none";
+                  }
+              }
+          }
+      }
+
+    </script>
+</body>
+</html>
